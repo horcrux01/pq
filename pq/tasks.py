@@ -27,6 +27,10 @@ def task(
             _schedule_at = kwargs.pop('_schedule_at', None)
             _expected_at = kwargs.pop('_expected_at', None)
 
+            if 'queue_job' not in kwargs or not kwargs['queue_job']:
+                return None
+
+            kwargs.pop('queue_job')
             put_kwargs = dict(
                 schedule_at=_schedule_at or schedule_at,
                 expected_at=_expected_at or expected_at,
