@@ -59,7 +59,8 @@ class Queue(BaseQueue):
 
     def fail(self, job, data, e=None):
         retried = data['retried']
-
+        if e:
+            self.update(job.id, {"error": str(e)})
         if data.get('max_retries', 0) > retried:
             data.update(dict(
                 retried=retried + 1,

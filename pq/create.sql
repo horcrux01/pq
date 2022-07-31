@@ -4,6 +4,8 @@ create table if not exists %(table)s (
   dequeued_at timestamptz,
   expected_at timestamptz,
   schedule_at timestamptz,
+  fnName      text
+  error       text
   q_name      text         NOT NULL CHECK (length(q_name) > 0),
   data        json         NOT NULL
 );
