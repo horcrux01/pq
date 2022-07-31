@@ -240,6 +240,10 @@ class Queue(object):
                 utc_format(expected_at) if expected_at is not None else None,
             )
 
+    def update_attribute(self, job_id, attribute, value):
+        with self._transaction() as cursor:
+            return self._update_attribute(cursor, job_id, attribute, value)
+
     def update(self, job_id, data):
         """Update job data."""
 
@@ -284,6 +288,17 @@ class Queue(object):
 
         This method expects a string argument which is the item data
         and the scheduling timestamp.
+        """
+
+        return cursor.fetchone()[0]
+
+    @prepared
+    def _update_attribute(self, cursor):
+        """Updates an attribute in a single item into the queue.
+
+            UPDATE %(table)s SET $2 = $3 WHERE id = $1
+            RETURNING length(data::text)
+
         """
 
         return cursor.fetchone()[0]
