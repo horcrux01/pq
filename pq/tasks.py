@@ -20,11 +20,13 @@ def task(
     expected_at=None,
     max_retries=0,
     retry_in='30s',
+    repeat=None,
 ):
     def decorator(f):
         f._path = "%s.%s" % (f.__module__, f.__qualname__)
         f._max_retries = max_retries
         f._retry_in = retry_in
+        f._repeat = repeat
 
         queue.handler_registry[f._path] = f
 
@@ -50,6 +52,7 @@ def task(
                     retried=0,
                     retry_in=f._retry_in,
                     max_retries=f._max_retries,
+                    repeat=f._repeat
                 ),
                 **put_kwargs
             )
