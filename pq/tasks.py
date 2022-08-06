@@ -75,7 +75,7 @@ class Queue(BaseQueue):
             data.update(dict(
                 retried=retried + 1,
             ))
-            self.put_job(data)
+            self.put_job(job, data)
             return False
 
         self.logger.warning("Failed to perform job %r :" % job)
@@ -83,7 +83,7 @@ class Queue(BaseQueue):
 
         return False
 
-    def put_job(self, data, schedule_at=None):
+    def put_job(self, job, data, schedule_at=None):
         id = self.put(data, schedule_at=schedule_at or data['retry_in'])
         self.logger.info("Rescheduled %r as `%s`" % (job, id))
 
@@ -103,7 +103,7 @@ class Queue(BaseQueue):
 
         try:
             f(job.id, *data['args'], **data['kwargs'])
-            self.complete(data)
+            self.complete(job, data)
             return True
 
         except Exception as e:
@@ -111,12 +111,12 @@ class Queue(BaseQueue):
 
     task = task
 
-    def complete(self, data):
+    def complete(self, job, data):
         if "repeat" in data and data["repeat"]:
             if data["repeat"] == RepeatType.HOURLY.value:
-                self.put_job(data, schedule_at="1h")
+                self.put_job(job, data, schedule_at="1h")
             elif data["repeat"] == RepeatType.DAILY.value:
-                self.put_job(data, schedule_at="1d")
+                self.put_job(job, data, schedule_at="1d")
 
     def work(self, burst=False):
         """Starts processing jobs."""
