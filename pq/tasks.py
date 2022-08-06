@@ -6,6 +6,7 @@ from . import (
     PQ as BasePQ,
     Queue as BaseQueue,
 )
+from enum import Enum
 
 
 class RepeatType(Enum):
