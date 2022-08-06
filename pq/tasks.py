@@ -6,6 +6,12 @@ from . import (
     PQ as BasePQ,
     Queue as BaseQueue,
 )
+from enum import Enum
+
+
+class RepeatType(Enum):
+    DAILY = "DAILY"
+    HOURLY = "HOURLY"
 
 
 def task(
@@ -14,11 +20,13 @@ def task(
     expected_at=None,
     max_retries=0,
     retry_in='30s',
+    repeat=None,
 ):
     def decorator(f):
         f._path = "%s.%s" % (f.__module__, f.__qualname__)
         f._max_retries = max_retries
         f._retry_in = retry_in
+        f._repeat = repeat
 
         queue.handler_registry[f._path] = f
 
@@ -44,6 +52,7 @@ def task(
                     retried=0,
                     retry_in=f._retry_in,
                     max_retries=f._max_retries,
+                    repeat=f._repeat
                 ),
                 **put_kwargs
             )
@@ -66,15 +75,17 @@ class Queue(BaseQueue):
             data.update(dict(
                 retried=retried + 1,
             ))
-            id = self.put(data, schedule_at=data['retry_in'])
-            self.logger.info("Rescheduled %r as `%s`" % (job, id))
-
+            self.put_job(job, data)
             return False
 
         self.logger.warning("Failed to perform job %r :" % job)
         self.logger.exception(e)
 
         return False
+
+    def put_job(self, job, data, schedule_at=None):
+        id = self.put(data, schedule_at=schedule_at or data['retry_in'])
+        self.logger.info("Rescheduled %r as `%s`" % (job, id))
 
     def perform(self, job):
         data = job.data
@@ -92,12 +103,20 @@ class Queue(BaseQueue):
 
         try:
             f(job.id, *data['args'], **data['kwargs'])
+            self.complete(job, data)
             return True
 
         except Exception as e:
             return self.fail(job, data, e)
 
     task = task
+
+    def complete(self, job, data):
+        if "repeat" in data and data["repeat"]:
+            if data["repeat"] == RepeatType.HOURLY.value:
+                self.put_job(job, data, schedule_at="1h")
+            elif data["repeat"] == RepeatType.DAILY.value:
+                self.put_job(job, data, schedule_at="1d")
 
     def work(self, burst=False):
         """Starts processing jobs."""
