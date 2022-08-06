@@ -8,6 +8,11 @@ from . import (
 )
 
 
+class RepeatType(Enum):
+    DAILY = "DAILY"
+    HOURLY = "HOURLY"
+
+
 def task(
     queue,
     schedule_at=None,
@@ -66,15 +71,17 @@ class Queue(BaseQueue):
             data.update(dict(
                 retried=retried + 1,
             ))
-            id = self.put(data, schedule_at=data['retry_in'])
-            self.logger.info("Rescheduled %r as `%s`" % (job, id))
-
+            self.put_job(data)
             return False
 
         self.logger.warning("Failed to perform job %r :" % job)
         self.logger.exception(e)
 
         return False
+
+    def put_job(self, data, schedule_at=None):
+        id = self.put(data, schedule_at=schedule_at or data['retry_in'])
+        self.logger.info("Rescheduled %r as `%s`" % (job, id))
 
     def perform(self, job):
         data = job.data
@@ -92,12 +99,20 @@ class Queue(BaseQueue):
 
         try:
             f(job.id, *data['args'], **data['kwargs'])
+            self.complete(data)
             return True
 
         except Exception as e:
             return self.fail(job, data, e)
 
     task = task
+
+    def complete(self, data):
+        if "repeat" in data and data["repeat"]:
+            if data["repeat"] == RepeatType.HOURLY.value:
+                self.put_job(data, schedule_at="1h")
+            elif data["repeat"] == RepeatType.DAILY.value:
+                self.put_job(data, schedule_at="1d")
 
     def work(self, burst=False):
         """Starts processing jobs."""
