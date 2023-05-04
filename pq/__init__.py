@@ -15,7 +15,7 @@ from .utils import (
 
 
 __title__ = 'pq'
-__version__ = '1.9.1-dev'
+__version__ = '1.9.2-dev'
 __author__ = 'Malthe Borch'
 __license__ = 'BSD'
 
@@ -348,8 +348,8 @@ class Queue(object):
               enqueued_at AT TIME ZONE 'utc' AS enqueued_at,
               schedule_at AT TIME ZONE 'utc' AS schedule_at,
               expected_at AT TIME ZONE 'utc' AS expected_at,
-              (extract(
-                second FROM (
+              (date_part(
+                'second', (
                   (SELECT schedule_at - now() FROM selected))))
             FROM selected
 

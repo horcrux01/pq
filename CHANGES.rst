@@ -3,6 +3,13 @@ Changes
 
 In next release ...
 
+1.9.1 (2023-04-04)
+------------------
+
+- Add support for PostgreSQL 14 [kalekseev].
+
+  See https://www.postgresql.org/docs/14/release-14.html#id-1.11.6.11.4.
+
 - Add support for using a custom schema (issue #35).
 
 1.9.0 (2020-09-29)
