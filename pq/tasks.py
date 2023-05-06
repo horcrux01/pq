@@ -69,6 +69,7 @@ class Queue(BaseQueue):
     logger = getLogger('pq.tasks')
 
     def fail(self, job, data, unique_key, e=None):
+        self.reset_unique_key(job.id)
         retried = data['retried']
         if e:
             error = str(type(e).__name__) + ": " + str(e)
@@ -79,8 +80,6 @@ class Queue(BaseQueue):
             ))
             self.put_job(job, data, unique_key)
             return False
-        else:
-            self.reset_unique_key(job.id)
 
         self.logger.warning("Failed to perform job %r :" % job)
         self.logger.exception(e)
@@ -117,13 +116,12 @@ class Queue(BaseQueue):
     task = task
 
     def complete(self, job, data, unique_key):
+        self.reset_unique_key(job.id)
         if "repeat" in data and data["repeat"]:
             if data["repeat"] == RepeatType.HOURLY.value:
                 self.put_job(job, data, unique_key, schedule_at="1h")
             elif data["repeat"] == RepeatType.DAILY.value:
                 self.put_job(job, data, unique_key, schedule_at="1d")
-        else:
-            self.reset_unique_key(job.id)
 
     def work(self, burst=False):
         """Starts processing jobs."""
