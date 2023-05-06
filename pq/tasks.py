@@ -7,6 +7,7 @@ from . import (
     Queue as BaseQueue,
 )
 from enum import Enum
+from psycopg2.errors import UniqueViolation
 
 
 class RepeatType(Enum):
@@ -16,6 +17,7 @@ class RepeatType(Enum):
 
 def task(
     queue,
+    unique_key,
     schedule_at=None,
     expected_at=None,
     max_retries=0,
@@ -35,27 +37,31 @@ def task(
             _schedule_at = kwargs.pop('_schedule_at', None)
             _expected_at = kwargs.pop('_expected_at', None)
 
-            if 'queue_job' not in kwargs or not kwargs['queue_job']:
+            if not kwargs.get('queue_job'):
                 return f(*args, **kwargs)
 
             kwargs.pop('queue_job')
             put_kwargs = dict(
                 schedule_at=_schedule_at or schedule_at,
                 expected_at=_expected_at or expected_at,
+                unique_key=unique_key,
             )
 
-            return queue.put(
-                dict(
-                    function=f._path,
-                    args=args,
-                    kwargs=kwargs,
-                    retried=0,
-                    retry_in=f._retry_in,
-                    max_retries=f._max_retries,
-                    repeat=f._repeat
-                ),
-                **put_kwargs
-            )
+            try:
+                return queue.put(
+                    dict(
+                        function=f._path,
+                        args=args,
+                        kwargs=kwargs,
+                        retried=0,
+                        retry_in=f._retry_in,
+                        max_retries=f._max_retries,
+                        repeat=f._repeat
+                    ),
+                    **put_kwargs
+                )
+            except UniqueViolation:
+                return
 
         return wrapper
 
@@ -66,7 +72,7 @@ class Queue(BaseQueue):
     handler_registry = dict()
     logger = getLogger('pq.tasks')
 
-    def fail(self, job, data, e=None):
+    def fail(self, job, data, unique_key, e=None):
         retried = data['retried']
         if e:
             error = str(type(e).__name__) + ": " + str(e)
@@ -75,20 +81,23 @@ class Queue(BaseQueue):
             data.update(dict(
                 retried=retried + 1,
             ))
-            self.put_job(job, data)
+            self.put_job(job, data, unique_key)
             return False
+        else:
+            self.reset_unique_key(job.id)
 
         self.logger.warning("Failed to perform job %r :" % job)
         self.logger.exception(e)
 
         return False
 
-    def put_job(self, job, data, schedule_at=None):
-        id = self.put(data, schedule_at=schedule_at or data['retry_in'])
+    def put_job(self, job, data, unique_key, schedule_at=None):
+        id = self.put(data, unique_key=unique_key, schedule_at=schedule_at or data['retry_in'])
         self.logger.info("Rescheduled %r as `%s`" % (job, id))
 
     def perform(self, job):
         data = job.data
+        unique_key = job.unique_key
         function_path = data['function']
 
         f = self.handler_registry.get(function_path)
@@ -102,21 +111,23 @@ class Queue(BaseQueue):
             ))
 
         try:
-            f(job.id, *data['args'], **data['kwargs'])
-            self.complete(job, data)
+            f(*data['args'], **data['kwargs'])
+            self.complete(job, data, unique_key)
             return True
 
         except Exception as e:
-            return self.fail(job, data, e)
+            return self.fail(job, data, unique_key, e)
 
     task = task
 
-    def complete(self, job, data):
+    def complete(self, job, data, unique_key):
         if "repeat" in data and data["repeat"]:
             if data["repeat"] == RepeatType.HOURLY.value:
-                self.put_job(job, data, schedule_at="1h")
+                self.put_job(job, data, unique_key, schedule_at="1h")
             elif data["repeat"] == RepeatType.DAILY.value:
-                self.put_job(job, data, schedule_at="1d")
+                self.put_job(job, data, unique_key, schedule_at="1d")
+        else:
+            self.reset_unique_key(job.id)
 
     def work(self, burst=False):
         """Starts processing jobs."""

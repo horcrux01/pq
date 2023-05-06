@@ -5,9 +5,12 @@ create table if not exists %(table)s (
   expected_at timestamptz,
   schedule_at timestamptz,
   error       text,
+  unique_key  text,
   q_name      text         NOT NULL CHECK (length(q_name) > 0),
   data        json         NOT NULL
 );
+
+create unique index if not exists unique_key_index on %(table)s (unique_key) where unique_key is not null;
 
 create index if not exists priority_idx_%(name)s on %(table)s
       (schedule_at nulls first, expected_at nulls last, q_name)
