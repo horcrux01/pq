@@ -382,7 +382,7 @@ class Queue(object):
             if blocking:
                 self._listen(cursor)
 
-            return None, None, None, None, None, None, None
+            return None, None, None, None, None, None, None, None
 
         return row
 
