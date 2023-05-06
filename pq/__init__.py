@@ -181,6 +181,7 @@ class Queue(object):
             with self._transaction() as cursor:
                 (
                     job_id,
+                    unique_key,
                     data,
                     size,
                     enqueued_at,
@@ -203,7 +204,8 @@ class Queue(object):
 
                 return Job(
                     job_id, self.loads(decoded), size,
-                    enqueued_at, schedule_at, expected_at, self.update
+                    enqueued_at, schedule_at, expected_at, self.update,
+                    unique_key=unique_key,
                 )
 
             if not block:
@@ -214,7 +216,7 @@ class Queue(object):
             if not self._select(float(self.last_timeout)):
                 block = False
 
-    def put(self, data, schedule_at=None, expected_at=None):
+    def put(self, data, unique_key, schedule_at=None, expected_at=None):
         """Put item into queue.
 
         If `schedule_at` is provided, the item is not dequeued until
@@ -238,11 +240,16 @@ class Queue(object):
                 cursor, self.encode(self.dumps(data)),
                 utc_format(schedule_at) if schedule_at is not None else None,
                 utc_format(expected_at) if expected_at is not None else None,
+                unique_key
             )
 
     def update_error_attribute(self, job_id, error):
         with self._transaction() as cursor:
             return self._update_error_attribute(cursor, job_id, error)
+
+    def reset_unique_key(self, job_id):
+        with self._transaction() as cursor:
+            return self._reset_unique_key_attribute(cursor, job_id)
 
     def update(self, job_id, data):
         """Update job data."""
@@ -283,8 +290,8 @@ class Queue(object):
     def _put_item(self, cursor):
         """Puts a single item into the queue.
 
-            INSERT INTO %(table)s (q_name, data, schedule_at, expected_at)
-            VALUES (%(name)s, $1, $2, $3) RETURNING id
+            INSERT INTO %(table)s (q_name, data, schedule_at, expected_at, unique_key)
+            VALUES (%(name)s, $1, $2, $3, $4) RETURNING id
 
         This method expects a string argument which is the item data
         and the scheduling timestamp.
@@ -297,6 +304,17 @@ class Queue(object):
         """Updates an attribute in a single item into the queue.
 
             UPDATE %(table)s SET error = $2 WHERE id = $1
+            RETURNING id
+
+        """
+
+        return cursor.fetchone()[0]
+
+    @prepared
+    def _reset_unique_key_attribute(self, cursor):
+        """Updates an attribute in a single item into the queue.
+
+            UPDATE %(table)s SET unique_key = NULL WHERE id = $1
             RETURNING id
 
         """
@@ -343,6 +361,7 @@ class Queue(object):
               )
             SELECT
               id,
+              unique_key,
               (SELECT data::text FROM updated),
               (SELECT length FROM updated),
               enqueued_at AT TIME ZONE 'utc' AS enqueued_at,
@@ -409,7 +428,7 @@ class Job(object):
 
     __slots__ = (
         "_data", "_size", "_update", "id", "enqueued_at", "schedule_at",
-        "expected_at",
+        "expected_at", "unique_key"
     )
 
     def __init__(
@@ -420,7 +439,8 @@ class Job(object):
         enqueued_at,
         schedule_at,
         expected_at,
-        update
+        update,
+        unique_key,
     ):
         self._data = data
         self._size = size
@@ -429,12 +449,13 @@ class Job(object):
         self.enqueued_at = enqueued_at
         self.schedule_at = schedule_at
         self.expected_at = expected_at
+        self.unique_key = unique_key
 
     def __repr__(self):
         cls = type(self)
         return (
             '<%s.%s id=%d size=%d enqueued_at=%r '
-            'schedule_at=%r expected_at=%r>' % (
+            'schedule_at=%r expected_at=%r unique_key=%r>' % (
                 cls.__module__,
                 cls.__name__,
                 self.id,
@@ -442,6 +463,7 @@ class Job(object):
                 utc_format(self.enqueued_at),
                 utc_format(self.schedule_at) if self.schedule_at else None,
                 utc_format(self.expected_at) if self.expected_at else None,
+                self.unique_key,
             )
         ).replace("'", '"')
 
