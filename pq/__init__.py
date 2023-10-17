@@ -296,7 +296,7 @@ class Queue(object):
         """Puts a single item into the queue.
 
             INSERT INTO %(table)s (q_name, data, schedule_at, expected_at, unique_key, fn_name)
-            VALUES (%(name)s, $1, $2, $3, $4 $5) RETURNING id
+            VALUES (%(name)s, $1, $2, $3, $4, $5) RETURNING id
 
         This method expects a string argument which is the item data
         and the scheduling timestamp.
