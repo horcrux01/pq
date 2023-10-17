@@ -4,6 +4,7 @@ create table if not exists %(table)s (
   dequeued_at timestamptz,
   expected_at timestamptz,
   schedule_at timestamptz,
+  completed_at timestamptz,
   error       text,
   unique_key  text,
   q_name      text         NOT NULL CHECK (length(q_name) > 0),

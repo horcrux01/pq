@@ -84,6 +84,7 @@ class Queue(BaseQueue):
         self.logger.warning("Failed to perform job %r :" % job)
         self.logger.exception(e)
 
+        self.update_completed_at(job.id)
         return False
 
     def put_job(self, job, data, unique_key, schedule_at=None):
@@ -91,6 +92,7 @@ class Queue(BaseQueue):
         self.logger.info("Rescheduled %r as `%s`" % (job, id))
 
     def perform(self, job):
+        self.logger.info("Executing job %r as `%s`" % (job, job.id))
         data = job.data
         unique_key = job.unique_key
         function_path = data['function']
@@ -122,6 +124,9 @@ class Queue(BaseQueue):
                 self.put_job(job, data, unique_key, schedule_at="1h")
             elif data["repeat"] == RepeatType.DAILY.value:
                 self.put_job(job, data, unique_key, schedule_at="1d")
+
+        self.logger.info("Completed job %r as `%s`" % (job, job.id))
+        self.update_completed_at(job.id)
 
     def work(self, burst=False):
         """Starts processing jobs."""
