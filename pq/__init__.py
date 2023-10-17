@@ -182,6 +182,7 @@ class Queue(object):
                 (
                     job_id,
                     unique_key,
+                    fn_name,
                     data,
                     size,
                     enqueued_at,
@@ -206,6 +207,7 @@ class Queue(object):
                     job_id, self.loads(decoded), size,
                     enqueued_at, schedule_at, expected_at, self.update,
                     unique_key=unique_key,
+                    fn_name=fn_name
                 )
 
             if not block:
@@ -378,6 +380,7 @@ class Queue(object):
             SELECT
               id,
               unique_key,
+              fn_name,
               (SELECT data::text FROM updated),
               (SELECT length FROM updated),
               enqueued_at AT TIME ZONE 'utc' AS enqueued_at,
@@ -444,7 +447,7 @@ class Job(object):
 
     __slots__ = (
         "_data", "_size", "_update", "id", "enqueued_at", "schedule_at",
-        "expected_at", "unique_key"
+        "expected_at", "unique_key", "fn_name"
     )
 
     def __init__(
@@ -457,6 +460,7 @@ class Job(object):
         expected_at,
         update,
         unique_key,
+        fn_name
     ):
         self._data = data
         self._size = size
@@ -466,12 +470,13 @@ class Job(object):
         self.schedule_at = schedule_at
         self.expected_at = expected_at
         self.unique_key = unique_key
+        self.fn_name = fn_name
 
     def __repr__(self):
         cls = type(self)
         return (
             '<%s.%s id=%d size=%d enqueued_at=%r '
-            'schedule_at=%r expected_at=%r unique_key=%r>' % (
+            'schedule_at=%r expected_at=%r unique_key=%r fn_name=%r>' % (
                 cls.__module__,
                 cls.__name__,
                 self.id,
@@ -480,6 +485,7 @@ class Job(object):
                 utc_format(self.schedule_at) if self.schedule_at else None,
                 utc_format(self.expected_at) if self.expected_at else None,
                 self.unique_key,
+                self.fn_name,
             )
         ).replace("'", '"')
 
