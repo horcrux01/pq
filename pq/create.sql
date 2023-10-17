@@ -6,6 +6,7 @@ create table if not exists %(table)s (
   schedule_at timestamptz,
   completed_at timestamptz,
   error       text,
+  fn_name     text,
   unique_key  text,
   q_name      text         NOT NULL CHECK (length(q_name) > 0),
   data        json         NOT NULL
@@ -23,6 +24,8 @@ create index if not exists priority_idx_no_%(name)s on %(table)s
     where dequeued_at is null
           and q_name != '%(name)s';
 
+alter table %(table)s add column if not exists completed_at timestamptz;
+alter table %(table)s add column if not exists fn_name text;
 drop function if exists pq_notify() cascade;
 
 create function pq_notify() returns trigger as $$ begin

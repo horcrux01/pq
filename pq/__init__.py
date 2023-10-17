@@ -216,7 +216,7 @@ class Queue(object):
             if not self._select(float(self.last_timeout)):
                 block = False
 
-    def put(self, data, unique_key, schedule_at=None, expected_at=None):
+    def put(self, data, unique_key, schedule_at=None, expected_at=None, fn_name=None):
         """Put item into queue.
 
         If `schedule_at` is provided, the item is not dequeued until
@@ -240,7 +240,8 @@ class Queue(object):
                 cursor, self.encode(self.dumps(data)),
                 utc_format(schedule_at) if schedule_at is not None else None,
                 utc_format(expected_at) if expected_at is not None else None,
-                unique_key
+                unique_key,
+                fn_name,
             )
 
     def update_error_attribute(self, job_id, error):
@@ -294,8 +295,8 @@ class Queue(object):
     def _put_item(self, cursor):
         """Puts a single item into the queue.
 
-            INSERT INTO %(table)s (q_name, data, schedule_at, expected_at, unique_key)
-            VALUES (%(name)s, $1, $2, $3, $4) RETURNING id
+            INSERT INTO %(table)s (q_name, data, schedule_at, expected_at, unique_key, fn_name)
+            VALUES (%(name)s, $1, $2, $3, $4 $5) RETURNING id
 
         This method expects a string argument which is the item data
         and the scheduling timestamp.

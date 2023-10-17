@@ -41,6 +41,7 @@ def task(
                 schedule_at=_schedule_at or schedule_at,
                 expected_at=_expected_at or expected_at,
                 unique_key=unique_key,
+                fn_name=f.__qualname__
             )
 
             try:
