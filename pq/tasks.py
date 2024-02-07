@@ -13,6 +13,9 @@ from psycopg2.errors import UniqueViolation
 class RepeatType(Enum):
     DAILY = "DAILY"
     HOURLY = "HOURLY"
+    MIN_1 = "MIN_1"
+    MIN_2 = "MIN_2"
+    MIN_3 = "MIN_3"
     MIN_5 = "MIN_5"
     MIN_10 = "MIN_10"
     MIN_15 = "MIN_15"
@@ -128,6 +131,12 @@ class Queue(BaseQueue):
                 self.put_job(job, data, schedule_at="1h")
             elif data["repeat"] == RepeatType.DAILY.value:
                 self.put_job(job, data, schedule_at="1d")
+            elif data["repeat"] == RepeatType.MIN_1.value:
+                self.put_job(job, data, schedule_at="1m")
+            elif data["repeat"] == RepeatType.MIN_2.value:
+                self.put_job(job, data, schedule_at="2m")
+            elif data["repeat"] == RepeatType.MIN_3.value:
+                self.put_job(job, data, schedule_at="3m")
             elif data["repeat"] == RepeatType.MIN_5.value:
                 self.put_job(job, data, schedule_at="5m")
             elif data["repeat"] == RepeatType.MIN_10.value:
