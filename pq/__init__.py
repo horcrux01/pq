@@ -188,6 +188,7 @@ class Queue(object):
                     enqueued_at,
                     schedule_at,
                     expected_at,
+                    completed_at,
                     seconds,
                 ) = self._pull_item(
                     cursor, block
@@ -207,7 +208,8 @@ class Queue(object):
                     job_id, self.loads(decoded), size,
                     enqueued_at, schedule_at, expected_at, self.update,
                     unique_key=unique_key,
-                    fn_name=fn_name
+                    fn_name=fn_name,
+                    completed_at=completed_at,
                 )
 
             if not block:
@@ -386,6 +388,7 @@ class Queue(object):
               enqueued_at AT TIME ZONE 'utc' AS enqueued_at,
               schedule_at AT TIME ZONE 'utc' AS schedule_at,
               expected_at AT TIME ZONE 'utc' AS expected_at,
+              completed_at AT TIME ZONE 'utc' AS completed_at,
               (date_part(
                 'second', (
                   (SELECT schedule_at - now() FROM selected))))
@@ -401,7 +404,7 @@ class Queue(object):
             if blocking:
                 self._listen(cursor)
 
-            return None, None, None, None, None, None, None, None, None
+            return None, None, None, None, None, None, None, None, None, None
 
         return row
 
@@ -447,7 +450,7 @@ class Job(object):
 
     __slots__ = (
         "_data", "_size", "_update", "id", "enqueued_at", "schedule_at",
-        "expected_at", "unique_key", "fn_name"
+        "expected_at", "unique_key", "fn_name", "completed_at"
     )
 
     def __init__(
@@ -460,7 +463,8 @@ class Job(object):
         expected_at,
         update,
         unique_key,
-        fn_name
+        fn_name,
+        completed_at,
     ):
         self._data = data
         self._size = size
@@ -471,6 +475,7 @@ class Job(object):
         self.expected_at = expected_at
         self.unique_key = unique_key
         self.fn_name = fn_name
+        self.completed_at = completed_at
 
     def __repr__(self):
         cls = type(self)
