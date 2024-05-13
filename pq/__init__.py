@@ -258,9 +258,11 @@ class Queue(object):
         with self._transaction() as cursor:
             return self._reset_unique_key_attribute(cursor, job_id)
 
-    def update_completed_at(self, job_id):
+    def update_completed_at(self, job):
         with self._transaction() as cursor:
-            return self._update_completed_at(cursor, job_id)
+            id, completed_at = self._update_completed_at(cursor, job.id)
+            job.completed_at = completed_at
+            return id
 
     def update(self, job_id, data):
         """Update job data."""
@@ -337,7 +339,7 @@ class Queue(object):
         """Updates an attribute in a single item into the queue.
 
             UPDATE %(table)s SET completed_at = current_timestamp WHERE id = $1
-            RETURNING id
+            RETURNING id, completed_at
 
         """
 
