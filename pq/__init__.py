@@ -379,7 +379,7 @@ class Queue(object):
                 WHERE
                   t.id = selected.id AND
                   (t.schedule_at <= now() OR t.schedule_at is NULL)
-                RETURNING t.data, length(t.data::text) AS length
+                RETURNING t.data, length(t.data::text) AS length, t.dequeued_at
               )
             SELECT
               id,
@@ -391,7 +391,7 @@ class Queue(object):
               schedule_at AT TIME ZONE 'utc' AS schedule_at,
               expected_at AT TIME ZONE 'utc' AS expected_at,
               completed_at AT TIME ZONE 'utc' AS completed_at,
-              dequeued_at AT TIME ZONE 'utc' AS dequeued_at,
+              (SELECT dequeued_at AT TIME ZONE 'UTC' FROM updated) AS dequeued_at,
               (date_part(
                 'second', (
                   (SELECT schedule_at - now() FROM selected))))
