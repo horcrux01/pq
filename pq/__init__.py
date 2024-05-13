@@ -339,11 +339,11 @@ class Queue(object):
         """Updates an attribute in a single item into the queue.
 
             UPDATE %(table)s SET completed_at = current_timestamp WHERE id = $1
-            RETURNING id, completed_at
+            RETURNING id, completed_at AT TIME ZONE 'utc' AS completed_at
 
         """
 
-        return cursor.fetchone()[0]
+        return cursor.fetchone()
 
     @prepared
     def _update_item(self, cursor):

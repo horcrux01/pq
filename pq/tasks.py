@@ -92,7 +92,7 @@ class Queue(BaseQueue):
         self.logger.warning("Failed to perform job %r %r:" % (job, retried))
         self.logger.exception(e)
 
-        self.update_completed_at(job.id)
+        self.update_completed_at(job)
         return False
 
     def put_job(self, job, data, schedule_at=None):
@@ -146,7 +146,7 @@ class Queue(BaseQueue):
             elif data["repeat"] == RepeatType.MIN_30.value:
                 self.put_job(job, data, schedule_at="30m")
         self.logger.info("Completed job %r as `%s`" % (job, job.id))
-        self.update_completed_at(job.id)
+        self.update_completed_at(job)
 
     def work(self, burst=False):
         """Starts processing jobs."""
