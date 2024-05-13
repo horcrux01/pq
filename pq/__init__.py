@@ -189,6 +189,7 @@ class Queue(object):
                     schedule_at,
                     expected_at,
                     completed_at,
+                    dequeued_at,
                     seconds,
                 ) = self._pull_item(
                     cursor, block
@@ -210,6 +211,7 @@ class Queue(object):
                     unique_key=unique_key,
                     fn_name=fn_name,
                     completed_at=completed_at,
+                    dequeued_at=dequeued_at
                 )
 
             if not block:
@@ -256,9 +258,11 @@ class Queue(object):
         with self._transaction() as cursor:
             return self._reset_unique_key_attribute(cursor, job_id)
 
-    def update_completed_at(self, job_id):
+    def update_completed_at(self, job):
         with self._transaction() as cursor:
-            return self._update_completed_at(cursor, job_id)
+            id, completed_at = self._update_completed_at(cursor, job.id)
+            job.completed_at = completed_at
+            return id
 
     def update(self, job_id, data):
         """Update job data."""
@@ -335,11 +339,11 @@ class Queue(object):
         """Updates an attribute in a single item into the queue.
 
             UPDATE %(table)s SET completed_at = current_timestamp WHERE id = $1
-            RETURNING id
+            RETURNING id, completed_at AT TIME ZONE 'utc' AS completed_at
 
         """
 
-        return cursor.fetchone()[0]
+        return cursor.fetchone()
 
     @prepared
     def _update_item(self, cursor):
@@ -377,7 +381,7 @@ class Queue(object):
                 WHERE
                   t.id = selected.id AND
                   (t.schedule_at <= now() OR t.schedule_at is NULL)
-                RETURNING t.data, length(t.data::text) AS length
+                RETURNING t.data, length(t.data::text) AS length, t.dequeued_at
               )
             SELECT
               id,
@@ -389,6 +393,7 @@ class Queue(object):
               schedule_at AT TIME ZONE 'utc' AS schedule_at,
               expected_at AT TIME ZONE 'utc' AS expected_at,
               completed_at AT TIME ZONE 'utc' AS completed_at,
+              (SELECT dequeued_at AT TIME ZONE 'utc' FROM updated) AS dequeued_at,
               (date_part(
                 'second', (
                   (SELECT schedule_at - now() FROM selected))))
@@ -404,7 +409,7 @@ class Queue(object):
             if blocking:
                 self._listen(cursor)
 
-            return None, None, None, None, None, None, None, None, None, None
+            return None, None, None, None, None, None, None, None, None, None, None
 
         return row
 
@@ -450,7 +455,7 @@ class Job(object):
 
     __slots__ = (
         "_data", "_size", "_update", "id", "enqueued_at", "schedule_at",
-        "expected_at", "unique_key", "fn_name", "completed_at"
+        "expected_at", "unique_key", "fn_name", "completed_at", "dequeued_at"
     )
 
     def __init__(
@@ -465,6 +470,7 @@ class Job(object):
         unique_key,
         fn_name,
         completed_at,
+        dequeued_at,
     ):
         self._data = data
         self._size = size
@@ -476,6 +482,7 @@ class Job(object):
         self.unique_key = unique_key
         self.fn_name = fn_name
         self.completed_at = completed_at
+        self.dequeued_at = dequeued_at
 
     def __repr__(self):
         cls = type(self)
