@@ -391,7 +391,7 @@ class Queue(object):
               schedule_at AT TIME ZONE 'utc' AS schedule_at,
               expected_at AT TIME ZONE 'utc' AS expected_at,
               completed_at AT TIME ZONE 'utc' AS completed_at,
-              (SELECT dequeued_at AT TIME ZONE 'UTC' FROM updated) AS dequeued_at,
+              (SELECT dequeued_at AT TIME ZONE 'utc' FROM updated) AS dequeued_at,
               (date_part(
                 'second', (
                   (SELECT schedule_at - now() FROM selected))))
